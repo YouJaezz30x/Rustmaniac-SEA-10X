@@ -21,14 +21,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Seeded accounts
-
-| Role  | Email                   | Password    |
-|-------|-------------------------|-------------|
-| Admin | `admin@rustmaniac.local` | `admin123!` |
-| User  | `player@example.com`     | `player123!` |
-
-Override admin credentials with `ADMIN_EMAIL` / `ADMIN_PASSWORD` before seeding.
+The seed creates the first admin from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if that account does not exist yet. There are no demo accounts.
 
 ## Environment
 
@@ -46,13 +39,11 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
 4. Put the webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
 
-Without Stripe keys, cart still works; checkout returns `501` with a setup hint.
+Without Stripe keys the cart works and checkout returns `501`. Add `checkout.session.async_payment_succeeded` to the webhook events too.
 
-### Steam OpenID
+### Steam
 
-1. Get an API key: [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey)
-2. Set `STEAM_API_KEY` in `.env`.
-3. `/api/auth/steam` currently reports configuration status. Wire a Steam OpenID provider (or `openid-client`) against `NEXTAUTH_URL` when ready — credentials auth is fully functional for v1.
+Sign-in uses Steam OpenID and needs no key. `STEAM_API_KEY` (https://steamcommunity.com/dev/apikey) adds Steam names and avatars.
 
 ## Surfaces
 
