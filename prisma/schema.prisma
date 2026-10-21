@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite: store enum-like values as strings (USER|ADMIN, PENDING|PAID|..., ONE_MONTH|...)
+model User {
+  id           String     @id @default(cuid())
+  email        String?    @unique
+  passwordHash String?
+  name         String?
+  steamId      String?    @unique
+  role         String     @default("USER")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  reviews      Review[]
+  cartItems    CartItem[]
+}
+
+model VipPackage {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  tier        String
+  description String
+  features    String
+  priceMonth  Int
+  priceThree  Int
+  pricePerm   Int
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model Plugin {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String
+  priceCents  Int
+  version     String      @default("1.0.0")
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+model Staff {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  steamId   String?
+  avatarUrl String?
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rule {
+  id        String   @id @default(cuid())
+  category  String
+  title     String
+  body      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String?
+  author    String
+  rating    Int
+  body      String
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model CartItem {
+  id           String      @id @default(cuid())
+  userId       String
+  kind         String
+  vipPackageId String?
+  pluginId     String?
+  duration     String?
+  quantity     Int         @default(1)
+  createdAt    DateTime    @default(now())
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vipPackage   VipPackage? @relation(fields: [vipPackageId], references: [id])
+  plugin       Plugin?     @relation(fields: [pluginId], references: [id])
+
+  @@index([userId])
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  userId              String?
+  email               String
+  status              String      @default("PENDING")
+  totalCents          Int
+  currency            String      @default("usd")
+  stripeSessionId     String?     @unique
+  stripePaymentIntent String?
+  displayName         String?
+  fulfilledAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  user                User?       @relation(fields: [userId], references: [id])
+  items               OrderItem[]
+}
+
+model OrderItem {
+  id           String      @id @default(cuid())
+  orderId      String
+  kind         String
+  name         String
+  duration     String?
+  unitCents    Int
+  quantity     Int         @default(1)
+  vipPackageId String?
+  pluginId     String?
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vipPackage   VipPackage? @relation(fields: [vipPackageId], references: [id])
+  plugin       Plugin?     @relation(fields: [pluginId], references: [id])
+
+  @@index([orderId])
+}
+
+model RateLimitBucket {
+  id        String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}
