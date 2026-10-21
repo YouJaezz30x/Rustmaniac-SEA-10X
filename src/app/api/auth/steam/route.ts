@@ -1,27 +1,15 @@
 import { NextResponse } from "next/server";
-import { BRAND } from "@/lib/brand";
+import { createOAuthState } from "@/lib/auth-cookies";
+import { siteUrl, steamLoginUrl } from "@/lib/steam";
+import { requireUser } from "@/lib/session";
 
-/**
- * Steam OpenID stub — requires STEAM_API_KEY.
- * Full Steam OpenID flow can be wired with next-auth Steam provider or openid-client.
- */
-export async function GET() {
-  if (!process.env.STEAM_API_KEY) {
-    return NextResponse.json(
-      {
-        configured: false,
-        message:
-          "Steam login is not configured. Set STEAM_API_KEY from https://steamcommunity.com/dev/apikey and restart the app.",
-        docs: "https://steamcommunity.com/dev/apikey",
-        returnHint: `${process.env.NEXTAUTH_URL ?? BRAND.server}/api/auth/callback/steam`,
-      },
-      { status: 501 }
-    );
+/** Starts Steam sign-in (?mode=login) or links Steam to the signed-in account (?mode=link). */
+export async function GET(req: Request) {
+  const mode = new URL(req.url).searchParams.get("mode") === "link" ? "link" : "login";
+  if (mode === "link" && !(await requireUser())) {
+    return NextResponse.redirect(`${siteUrl()}/login`);
   }
-
-  // Placeholder redirect target once OpenID is wired
-  return NextResponse.json({
-    configured: true,
-    message: "Steam API key present. Wire OpenID realm/return_to against NEXTAUTH_URL.",
-  });
+  const state = await createOAuthState();
+  const returnTo = `${siteUrl()}/api/auth/steam/callback?mode=${mode}&state=${state}`;
+  return NextResponse.redirect(steamLoginUrl(returnTo));
 }

@@ -1,5 +1,7 @@
 import type { DurationKey } from "./brand";
 
+export const STORE_CURRENCY = (process.env.NEXT_PUBLIC_STORE_CURRENCY ?? "usd").toLowerCase();
+
 export function vipPriceCents(
   pkg: { priceMonth: number; priceThree: number; pricePerm: number },
   duration: DurationKey
@@ -16,9 +18,9 @@ export function vipPriceCents(
   }
 }
 
-export function formatUsd(cents: number): string {
+export function formatMoney(cents: number, currency: string = STORE_CURRENCY): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency: currency.toUpperCase(),
   }).format(cents / 100);
 }

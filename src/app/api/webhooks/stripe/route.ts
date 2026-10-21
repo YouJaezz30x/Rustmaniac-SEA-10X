@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { queueDeliveries } from "@/lib/fulfillment";
 
 export const runtime = "nodejs";
 
-/**
- * Stripe webhook: marks orders PAID and clears the user cart.
- * In-game auto-grant is intentionally stubbed — admins mark FULFILLED in /admin.
- */
+/** Stripe webhook: marks orders PAID, clears the cart and queues the in-game VIP grant. */
 export async function POST(req: Request) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -29,14 +27,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.metadata?.orderId;
-    if (orderId) {
+    if (orderId && session.payment_status === "paid") {
       const order = await prisma.order.update({
         where: { id: orderId },
         data: {
           status: "PAID",
+          email: session.customer_details?.email ?? undefined,
           stripePaymentIntent:
             typeof session.payment_intent === "string"
               ? session.payment_intent
@@ -47,9 +46,7 @@ export async function POST(req: Request) {
       if (order.userId) {
         await prisma.cartItem.deleteMany({ where: { userId: order.userId } });
       }
-
-      // Stub: enqueue in-game grant job here (RCON / Discord bot sync out of scope for v1)
-      console.log(`[fulfillment-stub] order ${order.id} paid — await admin mark fulfilled`);
+      await queueDeliveries(order.id);
     }
   }
 

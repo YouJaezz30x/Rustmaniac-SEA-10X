@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { formatUsd } from "@/lib/pricing";
+import { formatMoney } from "@/lib/pricing";
 import { csrfFetch } from "@/lib/csrf-client";
 
 type Plugin = {
@@ -54,7 +54,7 @@ export function PluginsClient({ plugins }: { plugins: Plugin[] }) {
             <p className="package__tier">v{plugin.version}</p>
             <h3>{plugin.name}</h3>
             <p className="muted">{plugin.description}</p>
-            <p className="price">{formatUsd(plugin.priceCents)}</p>
+            <p className="price">{formatMoney(plugin.priceCents)}</p>
             <button
               className="btn btn--solid"
               type="button"

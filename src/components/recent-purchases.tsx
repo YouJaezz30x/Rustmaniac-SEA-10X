@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { durationLabel } from "@/lib/brand";
-import { formatUsd } from "@/lib/pricing";
+import { formatMoney } from "@/lib/pricing";
 
 export async function RecentPurchases() {
   const orders = await prisma.order.findMany({
@@ -23,7 +23,7 @@ export async function RecentPurchases() {
       <ul>
         {orders.map((order) => {
           const item = order.items[0];
-          const who = order.displayName || order.email.split("@")[0];
+          const who = order.displayName || "A survivor";
           const what = item
             ? `${item.name}${item.duration ? ` · ${durationLabel(item.duration)}` : ""}`
             : "Store purchase";
@@ -31,7 +31,7 @@ export async function RecentPurchases() {
             <li key={order.id}>
               <span className="purchase-feed__who">{who}</span>
               <span className="purchase-feed__what">{what}</span>
-              <span className="purchase-feed__meta">{formatUsd(order.totalCents)}</span>
+              <span className="purchase-feed__meta">{formatMoney(order.totalCents, order.currency)}</span>
             </li>
           );
         })}

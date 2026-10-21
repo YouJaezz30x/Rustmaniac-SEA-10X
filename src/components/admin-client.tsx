@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/csrf-client";
-import { formatUsd } from "@/lib/pricing";
+import { formatMoney } from "@/lib/pricing";
 
 const TABS = [
   "packages",
@@ -11,6 +11,7 @@ const TABS = [
   "rules",
   "announcements",
   "orders",
+  "deliveries",
   "reviews",
 ] as const;
 
@@ -42,9 +43,14 @@ export function AdminClient() {
       slug: String(form.get("slug")),
       name: String(form.get("name")),
       tier: String(form.get("tier")),
+      grantTier: String(form.get("grantTier")),
       description: String(form.get("description")),
       features: String(form.get("features") || "")
         .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      kitContents: String(form.get("kitContents") || "")
+        .split("\n")
         .map((s) => s.trim())
         .filter(Boolean),
       priceMonth: Number(form.get("priceMonth")),
@@ -156,8 +162,21 @@ export function AdminClient() {
       setError("Update failed");
       return;
     }
-    setMessage("Order marked fulfilled (in-game grant stub)");
+    setMessage("Order marked fulfilled");
     await load("orders");
+  }
+
+  async function retryDelivery(id: string) {
+    const res = await csrfFetch("/api/admin/deliveries", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      setError("Retry failed");
+      return;
+    }
+    setMessage("Delivery queued again — the server picks it up within 30 seconds");
+    await load("deliveries");
   }
 
   async function approveReview(id: string, approved: boolean) {
@@ -217,12 +236,24 @@ export function AdminClient() {
             <input name="tier" required />
           </label>
           <label>
+            In-game rank given
+            <select name="grantTier" defaultValue="vip">
+              <option value="vip">VIP</option>
+              <option value="vip+">VIP+</option>
+              <option value="vip++">VIP++</option>
+            </select>
+          </label>
+          <label>
             Description
             <textarea name="description" required />
           </label>
           <label>
             Features (comma-separated)
             <input name="features" />
+          </label>
+          <label>
+            Kit contents (one line each)
+            <textarea name="kitContents" />
           </label>
           <label>
             Price 1mo (cents)
@@ -377,17 +408,24 @@ export function AdminClient() {
         <tbody>
           {rows.map((row) => {
             const id = String(row.id);
+            const order = row.order as { displayName?: string | null } | undefined;
             const title =
-              String(row.name ?? row.title ?? row.email ?? row.author ?? id);
+              tab === "deliveries"
+                ? `${order?.displayName ?? "Player"} · ${row.steamId}`
+                : tab === "orders"
+                  ? String(row.displayName ?? row.steamId ?? row.email ?? id)
+                  : String(row.name ?? row.title ?? row.email ?? row.author ?? id);
             const detail =
               tab === "orders"
-                ? `${row.status} · ${formatUsd(Number(row.totalCents ?? 0))}`
+                ? `${row.status} · ${formatMoney(Number(row.totalCents ?? 0), String(row.currency ?? "usd"))}`
+                : tab === "deliveries"
+                  ? `${row.status} · ${row.tier} · ${row.days ? `${row.days} days` : "permanent"}${row.result ? ` · ${row.result}` : ""}`
                 : tab === "reviews"
                   ? `${row.approved ? "approved" : "pending"} · ${row.body}`
                   : tab === "packages"
                     ? `${row.tier} · ${row.slug}`
                     : tab === "plugins"
-                      ? `v${row.version} · ${formatUsd(Number(row.priceCents ?? 0))}`
+                      ? `v${row.version} · ${formatMoney(Number(row.priceCents ?? 0))}`
                       : String(row.role ?? row.category ?? row.body ?? "");
             return (
               <tr key={id}>
@@ -421,7 +459,12 @@ export function AdminClient() {
                       </button>
                     </>
                   )}
-                  {tab !== "orders" && tab !== "reviews" && (
+                  {tab === "deliveries" && row.status !== "DELIVERED" && (
+                    <button className="btn btn--ghost" type="button" onClick={() => retryDelivery(id)}>
+                      Retry
+                    </button>
+                  )}
+                  {tab !== "orders" && tab !== "reviews" && tab !== "deliveries" && (
                     <button className="btn btn--ghost" type="button" onClick={() => remove(id)}>
                       Delete
                     </button>

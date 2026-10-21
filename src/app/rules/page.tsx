@@ -14,8 +14,8 @@ export default async function RulesPage() {
     <div className="page">
       <h1 className="page__title">Server rules</h1>
       <p className="page__lead">
-        Aligned with in-game and Discord rules. Breaking these voids VIP and can wipe your
-        progress.
+        The same rules as in game (/info → Rules) and in #rules on Discord. Breaking them can lead
+        to a warning, mute, kick or ban.
       </p>
       <div className="stack">
         {rules.map((rule) => (

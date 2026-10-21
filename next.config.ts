@@ -7,11 +7,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "files.catbox.moe",
       },
+      {
+        protocol: "https",
+        hostname: "avatars.steamstatic.com",
+      },
     ],
-  },
-  // Bundle Prisma SQLite DB for serverless reads (copied to /tmp at runtime)
-  outputFileTracingIncludes: {
-    "/**": ["./prisma/**/*", "./node_modules/.prisma/**/*"],
   },
 };
 

@@ -29,6 +29,8 @@ export const metadata: Metadata = {
     description: BRAND.tagline,
     images: [BRAND.bannerWide],
   },
+  // Kept out of search engines until launch; set SITE_PUBLIC=true on Vercel to allow indexing.
+  robots: process.env.SITE_PUBLIC === "true" ? undefined : { index: false, follow: false },
 };
 
 export default function RootLayout({

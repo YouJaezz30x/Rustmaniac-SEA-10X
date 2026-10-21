@@ -1,16 +1,16 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const steamFailed = useSearchParams().get("error") === "steam";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [steamMsg, setSteamMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: FormEvent) {
@@ -31,20 +31,20 @@ export default function LoginPage() {
     router.refresh();
   }
 
-  async function trySteam() {
-    setSteamMsg(null);
-    const res = await fetch("/api/auth/steam");
-    const data = await res.json();
-    setSteamMsg(data.message || "Steam login unavailable");
-  }
-
   return (
     <div className="page">
       <h1 className="page__title">Sign in</h1>
       <p className="page__lead">
-        Email/password auth with httpOnly session cookies. Steam OpenID is stubbed until{" "}
-        <code>STEAM_API_KEY</code> is set.
+        Sign in with Steam to buy VIP. It goes straight to your Steam account in game.
       </p>
+      {steamFailed && <p className="alert alert--error">Steam sign-in didn&apos;t complete. Please try again.</p>}
+      <div style={{ marginBottom: "2rem" }}>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- redirects off-site to Steam */}
+        <a className="btn btn--solid" href="/api/auth/steam?mode=login">
+          Sign in through Steam
+        </a>
+      </div>
+      <p className="muted">Or use the email account you registered:</p>
       <form className="form" onSubmit={onSubmit}>
         {error && <p className="alert alert--error">{error}</p>}
         <label>
@@ -74,12 +74,14 @@ export default function LoginPage() {
       <p className="muted" style={{ marginTop: "1rem" }}>
         No account? <Link href="/register">Register</Link>
       </p>
-      <div style={{ marginTop: "1.5rem" }}>
-        <button className="btn btn--ghost" type="button" onClick={trySteam}>
-          Steam OpenID
-        </button>
-        {steamMsg && <p className="alert" style={{ marginTop: "0.75rem" }}>{steamMsg}</p>}
-      </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

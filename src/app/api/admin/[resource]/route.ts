@@ -43,6 +43,14 @@ export async function GET(_req: Request, { params }: Params) {
       );
     case "reviews":
       return NextResponse.json(await prisma.review.findMany({ orderBy: { createdAt: "desc" } }));
+    case "deliveries":
+      return NextResponse.json(
+        await prisma.delivery.findMany({
+          include: { order: { select: { displayName: true, email: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+        })
+      );
     default:
       return NextResponse.json({ error: "Unknown resource" }, { status: 404 });
   }
@@ -61,8 +69,10 @@ export async function POST(req: Request, { params }: Params) {
         slug: z.string().min(2).max(64),
         name: z.string().min(2).max(64),
         tier: z.string().min(2).max(32),
+        grantTier: z.enum(["vip", "vip+", "vip++"]),
         description: z.string().min(2).max(1000),
         features: z.array(z.string()).default([]),
+        kitContents: z.array(z.string()).default([]),
         priceMonth: z.number().int().min(0),
         priceThree: z.number().int().min(0),
         pricePerm: z.number().int().min(0),
@@ -76,6 +86,7 @@ export async function POST(req: Request, { params }: Params) {
           ...parsed.data,
           description: sanitizeText(parsed.data.description),
           features: JSON.stringify(parsed.data.features),
+          kitContents: JSON.stringify(parsed.data.kitContents),
         },
       });
       return NextResponse.json(created);
@@ -173,6 +184,15 @@ export async function POST(req: Request, { params }: Params) {
       });
       return NextResponse.json(updated);
     }
+    case "deliveries": {
+      const parsed = z.object({ id: z.string() }).safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+      const updated = await prisma.delivery.update({
+        where: { id: parsed.data.id },
+        data: { status: "PENDING", attempts: 0, result: null },
+      });
+      return NextResponse.json(updated);
+    }
     case "reviews": {
       const schema = z.object({
         id: z.string(),
@@ -202,13 +222,14 @@ export async function PATCH(req: Request, { params }: Params) {
 
   switch (resource) {
     case "packages": {
-      const { id: ignoredId, features, ...rest } = body;
+      const { id: ignoredId, features, kitContents, ...rest } = body;
       void ignoredId;
       const updated = await prisma.vipPackage.update({
         where: { id },
         data: {
           ...rest,
           features: Array.isArray(features) ? JSON.stringify(features) : features,
+          kitContents: Array.isArray(kitContents) ? JSON.stringify(kitContents) : kitContents,
         },
       });
       return NextResponse.json(updated);

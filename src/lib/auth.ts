@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "./prisma";
 import { rateLimit } from "./security";
+import { SESSION_COOKIE, SESSION_MAX_AGE } from "./auth-cookies";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(200),
@@ -13,14 +14,11 @@ const credentialsSchema = z.object({
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE,
   },
   cookies: {
     sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.session-token"
-          : "next-auth.session-token",
+      name: SESSION_COOKIE,
       options: {
         httpOnly: true,
         sameSite: "lax",
@@ -72,13 +70,31 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as { role?: string }).role ?? "USER";
         token.steamId = (user as { steamId?: string | null }).steamId ?? null;
       }
+      // Re-read the account so Steam/Discord links and role changes show up without signing out.
+      if (token.id) {
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { name: true, email: true, role: true, steamId: true, discordId: true, avatarUrl: true },
+        });
+        if (!fresh) return { ...token, id: undefined };
+        token.name = fresh.name;
+        token.email = fresh.email;
+        token.role = fresh.role;
+        token.steamId = fresh.steamId;
+        token.discordId = fresh.discordId;
+        token.picture = fresh.avatarUrl;
+      }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name ?? null;
+        session.user.email = token.email ?? null;
+        session.user.image = token.picture ?? null;
         session.user.role = (token.role as string) ?? "USER";
         session.user.steamId = (token.steamId as string | null) ?? null;
+        session.user.discordId = (token.discordId as string | null) ?? null;
       }
       return session;
     },

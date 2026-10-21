@@ -17,8 +17,8 @@ export default async function StorePage() {
       <div className="page">
         <h1 className="page__title">VIP store</h1>
         <p className="page__lead">
-          VIP / VIP+ / VIP++ with 1 month, 3 months, or permanent. Checkout via Stripe; receipt
-          lands after payment.
+          VIP, VIP+ and VIP++ for 30 days, 90 days or permanently. Each rank gives its own kit every
+          12 hours. Buying the same rank again adds the days on top.
         </p>
         <StoreClient packages={packages} />
       </div>

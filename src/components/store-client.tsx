@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { DURATION_LABELS, type DurationKey } from "@/lib/brand";
-import { formatUsd } from "@/lib/pricing";
+import { formatMoney } from "@/lib/pricing";
 import { csrfFetch } from "@/lib/csrf-client";
 
 type VipPackage = {
@@ -13,6 +13,7 @@ type VipPackage = {
   tier: string;
   description: string;
   features: string;
+  kitContents: string;
   priceMonth: number;
   priceThree: number;
   pricePerm: number;
@@ -32,6 +33,7 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [needsSteam, setNeedsSteam] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cart, setCart] = useState<{
     items: { id: string; name: string; lineCents: number; duration?: string | null }[];
@@ -83,6 +85,7 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
     try {
       const res = await csrfFetch("/api/checkout", { method: "POST", body: "{}" });
       const data = await res.json();
+      setNeedsSteam(Boolean(data.needsSteam));
       if (!res.ok) throw new Error(data.error || data.hint || "Checkout failed");
       if (data.url) window.location.href = data.url;
     } catch (e) {
@@ -100,12 +103,21 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
   return (
     <>
       {message && <p className="alert alert--ok">{message}</p>}
-      {error && <p className="alert alert--error">{error}</p>}
+      {error && (
+        <p className="alert alert--error">
+          {error}{" "}
+          {needsSteam && (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- redirects off-site to Steam
+            <a href="/api/auth/steam?mode=link">Link Steam now</a>
+          )}
+        </p>
+      )}
 
       <div className="package-grid">
         {packages.map((pkg) => {
           const selected = duration[pkg.id] ?? "ONE_MONTH";
           const features = JSON.parse(pkg.features) as string[];
+          const kit = JSON.parse(pkg.kitContents || "[]") as string[];
           return (
             <article key={pkg.id} className="package">
               <p className="package__tier">{pkg.tier}</p>
@@ -116,6 +128,16 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
                   <li key={f}>{f}</li>
                 ))}
               </ul>
+              {kit.length > 0 && (
+                <details className="kit-details">
+                  <summary>Everything in the {pkg.name} kit</summary>
+                  <ul>
+                    {kit.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <div className="duration-row">
                 {durations.map((d) => (
                   <button
@@ -128,7 +150,7 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
                   </button>
                 ))}
               </div>
-              <p className="price">{formatUsd(priceFor(pkg, selected))}</p>
+              <p className="price">{formatMoney(priceFor(pkg, selected))}</p>
               <button
                 className="btn btn--solid"
                 type="button"
@@ -145,7 +167,9 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
       <div className="cart-panel">
         <div className="section-head">
           <h2>Cart</h2>
-          <p className="muted">Sign in to add VIP packages and checkout with Stripe.</p>
+          <p className="muted">
+            Sign in with Steam, then pay by card. Your rank is given in game automatically within a minute or two.
+          </p>
         </div>
         {!session && (
           <p className="alert">
@@ -169,7 +193,7 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
                           : ""}
                       </span>
                       <span>
-                        {formatUsd(item.lineCents)}{" "}
+                        {formatMoney(item.lineCents)}{" "}
                         <button
                           className="btn btn--ghost"
                           type="button"
@@ -181,9 +205,9 @@ export function StoreClient({ packages }: { packages: VipPackage[] }) {
                     </li>
                   ))}
                 </ul>
-                <p className="price">Total {formatUsd(cart.totalCents)}</p>
+                <p className="price">Total {formatMoney(cart.totalCents)}</p>
                 <button className="btn btn--solid" type="button" disabled={busy} onClick={checkout}>
-                  Checkout with Stripe
+                  Checkout
                 </button>
               </>
             ) : (

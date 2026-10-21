@@ -3,17 +3,21 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite: store enum-like values as strings (USER|ADMIN, PENDING|PAID|..., ONE_MONTH|...)
+// Enum-like values are stored as strings (USER|ADMIN, PENDING|PAID|..., ONE_MONTH|...)
 model User {
   id           String     @id @default(cuid())
   email        String?    @unique
   passwordHash String?
   name         String?
   steamId      String?    @unique
+  steamName    String?
+  avatarUrl    String?
+  discordId    String?    @unique
+  discordName  String?
   role         String     @default("USER")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -27,8 +31,11 @@ model VipPackage {
   slug        String      @unique
   name        String
   tier        String
+  // Tier name RustmaniacVIP understands: "vip", "vip+" or "vip++"
+  grantTier   String      @default("vip")
   description String
   features    String
+  kitContents String      @default("[]")
   priceMonth  Int
   priceThree  Int
   pricePerm   Int
@@ -126,11 +133,47 @@ model Order {
   stripeSessionId     String?     @unique
   stripePaymentIntent String?
   displayName         String?
+  steamId             String?
   fulfilledAt         DateTime?
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
   user                User?       @relation(fields: [userId], references: [id])
   items               OrderItem[]
+  deliveries          Delivery[]
+}
+
+// In-game grants waiting for the RustmaniacStore Oxide plugin to pick up.
+model Delivery {
+  id          String    @id @default(cuid())
+  orderId     String
+  steamId     String
+  tier        String
+  // null = permanent
+  days        Int?
+  status      String    @default("PENDING") // PENDING | DELIVERED | FAILED
+  attempts    Int       @default(0)
+  result      String?
+  createdAt   DateTime  @default(now())
+  deliveredAt DateTime?
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// Single row (id "main") pushed by the RustmaniacStore Oxide plugin.
+model ServerStatus {
+  id         String    @id
+  hostname   String
+  online     Int
+  maxPlayers Int
+  sleepers   Int
+  queued     Int
+  joining    Int
+  worldSize  Int
+  seed       Int
+  wipedAt    DateTime?
+  nextWipe   DateTime?
+  updatedAt  DateTime  @updatedAt
 }
 
 model OrderItem {

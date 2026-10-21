@@ -5,7 +5,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div className="site-footer__inner">
         <p>
-          <strong>{BRAND.server}</strong> — community store &amp; Oxide marketplace.
+          <strong>{BRAND.server}</strong> · {BRAND.region} · <code>client.connect {BRAND.address}</code>
         </p>
         <p>
           <a href={BRAND.discord} target="_blank" rel="noreferrer">
@@ -14,9 +14,7 @@ export function SiteFooter() {
           <span aria-hidden="true"> · </span>
           <a href="/rules">Server rules</a>
         </p>
-        <p className="muted">
-          Live RCON status, Discord bot sync, and in-game auto-grant ship after v1.
-        </p>
+        <p className="muted">Not affiliated with or endorsed by Facepunch Studios.</p>
       </div>
     </footer>
   );

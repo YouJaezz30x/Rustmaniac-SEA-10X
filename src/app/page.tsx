@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { BRAND } from "@/lib/brand";
 import { RecentPurchases } from "@/components/recent-purchases";
+import { ServerStatus } from "@/components/server-status";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,10 @@ export default async function HomePage() {
           <p className="hero__headline">Wipe hard. Loot louder.</p>
           <p className="hero__support">{BRAND.tagline}</p>
           <div className="hero__cta">
-            <Link className="btn btn--solid" href="/store">
+            <a className="btn btn--solid" href={`steam://connect/${BRAND.address}`}>
+              Play now
+            </a>
+            <Link className="btn btn--ghost" href="/store">
               Get VIP
             </Link>
             <a className="btn btn--ghost" href={BRAND.discord} target="_blank" rel="noreferrer">
@@ -45,8 +49,11 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <ServerStatus />
+
       <RecentPurchases />
 
+      {staff.length > 0 && (
       <section className="band">
         <div className="section-head">
           <h2>Staff</h2>
@@ -69,6 +76,7 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+      )}
 
       {announcements.length > 0 && (
         <section className="band">

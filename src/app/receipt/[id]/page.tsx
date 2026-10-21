@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
-import { formatUsd } from "@/lib/pricing";
+import { formatMoney } from "@/lib/pricing";
 import { BRAND, durationLabel } from "@/lib/brand";
 
 export const metadata: Metadata = { title: "Receipt" };
@@ -21,10 +21,7 @@ export default async function ReceiptPage({ params }: Props) {
 
   const isOwner = session?.user?.id && order.userId === session.user.id;
   const isAdmin = session?.user?.role === "ADMIN";
-  if (!isOwner && !isAdmin) {
-    // Allow viewing when coming back from Stripe with a paid/pending session if email matches
-    if (!session) notFound();
-  }
+  if (!isOwner && !isAdmin) notFound();
 
   return (
     <div className="receipt">
@@ -40,7 +37,7 @@ export default async function ReceiptPage({ params }: Props) {
             : ""}
         </p>
         <p>
-          Customer: {order.displayName || "Player"} · {order.email}
+          Customer: {order.displayName || "Player"}{order.steamId ? ` · Steam ${order.steamId}` : ""}{order.email ? ` · ${order.email}` : ""}
         </p>
         <p>Date: {order.createdAt.toISOString()}</p>
         <table>
@@ -59,17 +56,16 @@ export default async function ReceiptPage({ params }: Props) {
                   {item.duration ? ` · ${durationLabel(item.duration)}` : ""}
                 </td>
                 <td>{item.quantity}</td>
-                <td>{formatUsd(item.unitCents * item.quantity)}</td>
+                <td>{formatMoney(item.unitCents * item.quantity, order.currency)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <p style={{ marginTop: "1.25rem", fontWeight: 700 }}>
-          Total {formatUsd(order.totalCents)} {order.currency.toUpperCase()}
+          Total {formatMoney(order.totalCents, order.currency)}
         </p>
         <p style={{ color: "#6a5f55", fontSize: "0.9rem" }}>
-          In-game grant is fulfilled by staff after payment (auto-grant ships post-v1). Print this
-          page for a PDF via your browser.
+          VIP is given to the Steam account above automatically, usually within a minute or two of payment. Need help? Open a ticket on our Discord. Print this page to save it as a PDF.
         </p>
       </div>
     </div>

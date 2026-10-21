@@ -3,8 +3,9 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { rateLimit, requireCsrf } from "@/lib/security";
-import { vipPriceCents } from "@/lib/pricing";
+import { STORE_CURRENCY, vipPriceCents } from "@/lib/pricing";
 import { durationLabel, type DurationKey } from "@/lib/brand";
+import { siteUrl } from "@/lib/steam";
 
 export async function POST(req: Request) {
   const session = await requireUser();
@@ -39,6 +40,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (cart.some((item) => item.kind === "vip") && !user?.steamId) {
+    return NextResponse.json(
+      { error: "Link your Steam account first so we know who gets the VIP rank in game.", needsSteam: true },
+      { status: 400 }
+    );
+  }
+
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
   const orderItems: {
     kind: string;
@@ -60,7 +69,7 @@ export async function POST(req: Request) {
       lineItems.push({
         quantity: item.quantity,
         price_data: {
-          currency: "usd",
+          currency: STORE_CURRENCY,
           unit_amount: unit,
           product_data: { name: label },
         },
@@ -79,7 +88,7 @@ export async function POST(req: Request) {
       lineItems.push({
         quantity: item.quantity,
         price_data: {
-          currency: "usd",
+          currency: STORE_CURRENCY,
           unit_amount: unit,
           product_data: { name: item.plugin.name },
         },
@@ -95,26 +104,27 @@ export async function POST(req: Request) {
     }
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const stripe = new Stripe(stripeKey);
 
   const order = await prisma.order.create({
     data: {
       userId: session.user.id,
-      email: session.user.email ?? "unknown@rustmaniac.local",
-      displayName: session.user.name,
+      email: user?.email ?? "",
+      displayName: user?.steamName ?? user?.name ?? null,
+      steamId: user?.steamId ?? null,
       status: "PENDING",
       totalCents,
+      currency: STORE_CURRENCY,
       items: { create: orderItems },
     },
   });
 
   const checkout = await stripe.checkout.sessions.create({
     mode: "payment",
-    customer_email: session.user.email ?? undefined,
+    customer_email: user?.email ?? undefined,
     line_items: lineItems,
-    success_url: `${siteUrl}/receipt/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl}/store?cancelled=1`,
+    success_url: `${siteUrl()}/receipt/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${siteUrl()}/store?cancelled=1`,
     metadata: { orderId: order.id, userId: session.user.id },
   });
 
