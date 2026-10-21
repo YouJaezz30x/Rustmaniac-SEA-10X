@@ -91,4 +91,4 @@ from Admin -> deliveries. VIP checkout requires a linked Steam account.
 
 - Banner: https://files.catbox.moe/0h4gs3.jpg
 - Logo: https://files.catbox.moe/5fx3yu.png
-- Discord: https://discord.gg/8tNEXgs3qX
+- Discord: https://discord.gg/fE5YdJBgyv

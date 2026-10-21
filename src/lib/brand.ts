@@ -2,7 +2,7 @@ export const BRAND = {
   name: "Rustmaniac",
   server: "Rustmaniac SEA 10X",
   tagline: "Southeast Asia's 10X server — instant crafting, clans of 10, custom events and kits. Hosted in Singapore.",
-  discord: "https://discord.gg/8tNEXgs3qX",
+  discord: "https://discord.gg/fE5YdJBgyv",
   bannerFull: "https://files.catbox.moe/0h4gs3.jpg",
   bannerWide: "https://files.catbox.moe/k3z7m5.png",
   logo: "https://files.catbox.moe/5fx3yu.png",

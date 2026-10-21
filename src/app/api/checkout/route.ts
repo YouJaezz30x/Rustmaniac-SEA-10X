@@ -150,7 +150,7 @@ export async function POST(req: Request) {
           description: `${BRAND.server} store order`,
           metadata,
           custom_fields: user?.steamId ? [{ name: "Steam ID", value: user.steamId }] : undefined,
-          footer: "VIP is delivered to your Steam account in game automatically. Support: discord.gg/8tNEXgs3qX",
+          footer: "VIP is delivered to your Steam account in game automatically. Support: discord.gg/fE5YdJBgyv",
         },
       },
       adaptive_pricing: { enabled: true },
