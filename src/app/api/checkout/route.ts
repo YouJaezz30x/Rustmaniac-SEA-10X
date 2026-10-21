@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { rateLimit, requireCsrf } from "@/lib/security";
 import { STORE_CURRENCY, vipPriceCents } from "@/lib/pricing";
-import { durationLabel, type DurationKey } from "@/lib/brand";
+import { BRAND, durationLabel, type DurationKey } from "@/lib/brand";
 import { siteUrl } from "@/lib/steam";
 
 export async function POST(req: Request) {
@@ -71,7 +71,11 @@ export async function POST(req: Request) {
         price_data: {
           currency: STORE_CURRENCY,
           unit_amount: unit,
-          product_data: { name: label },
+          product_data: {
+            name: label,
+            description: `In-game ${item.vipPackage.name} rank for Steam ${user?.steamId}. Kit every 12 hours.`,
+            metadata: { kind: "vip", slug: item.vipPackage.slug, duration },
+          },
         },
       });
       orderItems.push({
@@ -90,7 +94,10 @@ export async function POST(req: Request) {
         price_data: {
           currency: STORE_CURRENCY,
           unit_amount: unit,
-          product_data: { name: item.plugin.name },
+          product_data: {
+            name: item.plugin.name,
+            metadata: { kind: "plugin", slug: item.plugin.slug },
+          },
         },
       });
       orderItems.push({
@@ -119,14 +126,37 @@ export async function POST(req: Request) {
     },
   });
 
-  const checkout = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: user?.email ?? undefined,
-    line_items: lineItems,
-    success_url: `${siteUrl()}/receipt/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl()}/store?cancelled=1`,
-    metadata: { orderId: order.id, userId: session.user.id },
-  });
+  const metadata = { orderId: order.id, userId: session.user.id, steamId: user?.steamId ?? "" };
+  // Payment methods are left to the Dashboard (dynamic payment methods), so cards, Link, wallets and
+  // local methods turned on there all show up without code changes.
+  const checkout = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      ...(user?.stripeCustomerId
+        ? { customer: user.stripeCustomerId }
+        : { customer_email: user?.email ?? undefined, customer_creation: "always" as const }),
+      client_reference_id: order.id,
+      line_items: lineItems,
+      success_url: `${siteUrl()}/receipt/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl()}/store?cancelled=1`,
+      metadata,
+      payment_intent_data: {
+        description: `${BRAND.server} order ${order.id}`,
+        metadata,
+      },
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `${BRAND.server} store order`,
+          metadata,
+          custom_fields: user?.steamId ? [{ name: "Steam ID", value: user.steamId }] : undefined,
+          footer: "VIP is delivered to your Steam account in game automatically. Support: discord.gg/8tNEXgs3qX",
+        },
+      },
+      adaptive_pricing: { enabled: true },
+    },
+    { idempotencyKey: `checkout-${order.id}` }
+  );
 
   await prisma.order.update({
     where: { id: order.id },

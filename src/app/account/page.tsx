@@ -133,9 +133,25 @@ export default async function AccountPage({ searchParams }: Props) {
                       .join(", ")}
                   </td>
                   <td>{formatMoney(order.totalCents, order.currency)}</td>
-                  <td>{delivery ? DELIVERY_LABEL[delivery] : order.status}</td>
+                  <td>
+                    {order.status === "REFUNDED" || order.status === "CANCELLED"
+                      ? order.status.charAt(0) + order.status.slice(1).toLowerCase()
+                      : delivery
+                        ? DELIVERY_LABEL[delivery]
+                        : order.status === "PENDING"
+                          ? "Awaiting payment"
+                          : order.status}
+                  </td>
                   <td>
                     <Link href={`/receipt/${order.id}`}>Receipt</Link>
+                    {order.invoicePdf && (
+                      <>
+                        {" · "}
+                        <a href={order.invoicePdf} target="_blank" rel="noreferrer">
+                          Invoice PDF
+                        </a>
+                      </>
+                    )}
                   </td>
                 </tr>
               );

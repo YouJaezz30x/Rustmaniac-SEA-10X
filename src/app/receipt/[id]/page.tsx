@@ -61,6 +61,27 @@ export default async function ReceiptPage({ params }: Props) {
             ))}
           </tbody>
         </table>
+        {(order.invoicePdf || order.invoiceUrl) && (
+          <p style={{ marginTop: "1rem" }}>
+            Official invoice:{" "}
+            {order.invoicePdf && (
+              <a href={order.invoicePdf} target="_blank" rel="noreferrer">
+                Download PDF
+              </a>
+            )}
+            {order.invoicePdf && order.invoiceUrl && " · "}
+            {order.invoiceUrl && (
+              <a href={order.invoiceUrl} target="_blank" rel="noreferrer">
+                View online
+              </a>
+            )}
+          </p>
+        )}
+        {order.status === "PENDING" && (
+          <p style={{ marginTop: "1rem" }}>
+            Waiting for payment confirmation. Refresh this page in a moment.
+          </p>
+        )}
         <p style={{ marginTop: "1.25rem", fontWeight: 700 }}>
           Total {formatMoney(order.totalCents, order.currency)}
         </p>

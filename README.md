@@ -39,7 +39,7 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
 4. Put the webhook signing secret in `STRIPE_WEBHOOK_SECRET`.
 
-Without Stripe keys the cart works and checkout returns `501`. Add `checkout.session.async_payment_succeeded` to the webhook events too.
+Without Stripe keys the cart works and checkout returns `501`. Webhook events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`. Each paid order gets a Stripe invoice (PDF linked on the receipt). Turn on payment methods, Link and Adaptive Pricing in the Stripe Dashboard; the code uses dynamic payment methods.
 
 ### Steam
 

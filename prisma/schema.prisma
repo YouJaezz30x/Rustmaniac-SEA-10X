@@ -19,6 +19,7 @@ model User {
   // Uniqueness is enforced in /api/account/discord/callback
   discordId    String?
   discordName  String?
+  stripeCustomerId String?
   role         String     @default("USER")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -135,6 +136,9 @@ model Order {
   currency            String      @default("usd")
   stripeSessionId     String?     @unique
   stripePaymentIntent String?
+  stripeInvoiceId     String?
+  invoiceUrl          String?
+  invoicePdf          String?
   displayName         String?
   steamId             String?
   fulfilledAt         DateTime?
