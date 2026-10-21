@@ -8,7 +8,7 @@ using Oxide.Core.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("Rustmaniac Store", "10x ASIA", "1.0.0")]
+    [Info("Rustmaniac Store", "10x ASIA", "1.1.0")]
     [Description("Delivers VIP bought on the Rustmaniac website and sends live server status to it")]
     public class RustmaniacStore : RustPlugin
     {
@@ -25,6 +25,7 @@ namespace Oxide.Plugins
             [JsonProperty("Server API key (same as SERVER_API_KEY on the website)")] public string ApiKey = "";
             [JsonProperty("Check for new purchases every (seconds)")] public float DeliverySeconds = 30f;
             [JsonProperty("Send server status every (seconds)")] public float StatusSeconds = 60f;
+            [JsonProperty("Sync Discord links from /link every (minutes)")] public float LinkMinutes = 10f;
             [JsonProperty("Force wipe hour (UTC)")] public int ForceWipeHourUtc = 19;
         }
 
@@ -58,8 +59,10 @@ namespace Oxide.Plugins
         {
             timer.Every(Math.Max(10f, _config.DeliverySeconds), CheckDeliveries);
             timer.Every(Math.Max(30f, _config.StatusSeconds), SendStatus);
+            timer.Every(Math.Max(1f, _config.LinkMinutes) * 60f, SyncLinks);
             timer.Once(5f, SendStatus);
             timer.Once(8f, CheckDeliveries);
+            timer.Once(15f, SyncLinks);
         }
 
         private bool Ready()
@@ -206,6 +209,53 @@ namespace Oxide.Plugins
 
         #endregion
 
+        #region Discord links
+
+        // Last value sent per Steam ID, so only new or changed /link results are uploaded.
+        private readonly Dictionary<string, string> _sentLinks = new Dictionary<string, string>();
+
+        private void SyncLinks()
+        {
+            if (!Ready())
+                return;
+            JObject links;
+            try { links = Interface.Oxide.DataFileSystem.ReadObject<JObject>("RustmaniacDiscord")?["Links"] as JObject; }
+            catch { return; }
+            if (links == null)
+                return;
+
+            var changed = new List<JObject>();
+            foreach (var pair in links.Properties())
+            {
+                var discordId = (string)pair.Value["DiscordId"];
+                if (string.IsNullOrEmpty(discordId))
+                    continue;
+                var discordName = (string)pair.Value["DiscordName"];
+                var signature = discordId + "|" + discordName;
+                if (_sentLinks.TryGetValue(pair.Name, out var sent) && sent == signature)
+                    continue;
+                changed.Add(new JObject { ["steamId"] = pair.Name, ["discordId"] = discordId, ["discordName"] = discordName });
+            }
+
+            for (var i = 0; i < changed.Count; i += 40)
+            {
+                var batch = changed.GetRange(i, Math.Min(40, changed.Count - i));
+                var body = new JObject { ["links"] = new JArray(batch) };
+                webrequest.Enqueue(Url("/api/server/links"), body.ToString(Formatting.None), (code, res) =>
+                {
+                    if (code != 200)
+                    {
+                        PrintWarning($"Website returned {code} when syncing Discord links, will retry");
+                        return;
+                    }
+                    foreach (var link in batch)
+                        _sentLinks[(string)link["steamId"]] = (string)link["discordId"] + "|" + (string)link["discordName"];
+                }, this, RequestMethod.POST, Headers(), 30f);
+            }
+        }
+
+        #endregion
+
         [ConsoleCommand("store.check")]
         private void CmdCheck(ConsoleSystem.Arg arg)
         {
@@ -214,6 +264,7 @@ namespace Oxide.Plugins
             _warned = false;
             SendStatus();
             CheckDeliveries();
+            SyncLinks();
             arg.ReplyWith(Ready() ? "Checking the website for purchases and sending status..." : "Not configured yet, see oxide/config/RustmaniacStore.json");
         }
     }

@@ -163,6 +163,14 @@ model Delivery {
   @@index([status])
 }
 
+// Steam <-> Discord links made in game with /link (RustmaniacDiscord), synced by RustmaniacStore.
+model DiscordLink {
+  steamId     String   @id
+  discordId   String
+  discordName String?
+  updatedAt   DateTime @updatedAt
+}
+
 // Single row (id "main") pushed by the RustmaniacStore Oxide plugin.
 model ServerStatus {
   id         String    @id

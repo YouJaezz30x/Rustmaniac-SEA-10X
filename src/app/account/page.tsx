@@ -81,14 +81,15 @@ export default async function AccountPage({ searchParams }: Props) {
               Linked: <strong>{user.discordName}</strong>
             </p>
           ) : (
-            <p>Optional. Lets staff find your purchases when you open a ticket.</p>
+            <p>
+              Type <strong>/link</strong> in game and post the code in our Discord. It shows up here within
+              10 minutes{user.steamId ? "" : " once your Steam account is linked"}.
+            </p>
           )}
-          {discordConfigured() ? (
+          {discordConfigured() && (
             <a className="btn btn--ghost" href="/api/account/discord">
-              {user.discordId ? "Change Discord account" : "Link Discord"}
+              {user.discordId ? "Change Discord account" : "Link Discord here instead"}
             </a>
-          ) : (
-            <p className="muted">Coming soon.</p>
           )}
         </article>
       </div>

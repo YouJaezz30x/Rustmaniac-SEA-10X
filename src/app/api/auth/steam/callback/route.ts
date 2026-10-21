@@ -17,8 +17,14 @@ export async function GET(req: Request) {
   const steamId = await verifySteamResponse(query, `${siteUrl()}/api/auth/steam/callback`);
   if (!steamId) return back(failPath);
 
-  const profile = await fetchSteamProfile(steamId);
-  const profileData = profile ? { steamName: profile.name, avatarUrl: profile.avatarUrl } : {};
+  const [profile, discordLink] = await Promise.all([
+    fetchSteamProfile(steamId),
+    prisma.discordLink.findUnique({ where: { steamId } }),
+  ]);
+  const profileData = {
+    ...(profile ? { steamName: profile.name, avatarUrl: profile.avatarUrl } : {}),
+    ...(discordLink ? { discordId: discordLink.discordId, discordName: discordLink.discordName } : {}),
+  };
 
   if (mode === "link") {
     const session = await requireUser();
@@ -31,7 +37,9 @@ export async function GET(req: Request) {
 
   let user = await prisma.user.findUnique({ where: { steamId } });
   if (user) {
-    if (profile) user = await prisma.user.update({ where: { id: user.id }, data: profileData });
+    if (Object.keys(profileData).length > 0) {
+      user = await prisma.user.update({ where: { id: user.id }, data: profileData });
+    }
   } else {
     user = await prisma.user.create({
       data: { steamId, name: profile?.name ?? `Survivor ${steamId.slice(-4)}`, role: "USER", ...profileData },
