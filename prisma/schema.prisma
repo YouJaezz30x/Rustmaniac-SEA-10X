@@ -16,7 +16,8 @@ model User {
   steamId      String?    @unique
   steamName    String?
   avatarUrl    String?
-  discordId    String?    @unique
+  // Uniqueness is enforced in /api/account/discord/callback
+  discordId    String?
   discordName  String?
   role         String     @default("USER")
   createdAt    DateTime   @default(now())
@@ -24,6 +25,8 @@ model User {
   orders       Order[]
   reviews      Review[]
   cartItems    CartItem[]
+
+  @@index([discordId])
 }
 
 model VipPackage {

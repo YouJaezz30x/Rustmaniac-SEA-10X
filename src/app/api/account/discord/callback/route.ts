@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const discord = await fetchDiscordUser(code);
   if (!discord) return back("/account?error=discord");
 
-  const owner = await prisma.user.findUnique({ where: { discordId: discord.id } });
+  const owner = await prisma.user.findFirst({ where: { discordId: discord.id } });
   if (owner && owner.id !== session.user.id) return back("/account?error=discord-taken");
 
   await prisma.user.update({
