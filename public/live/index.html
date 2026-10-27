@@ -181,7 +181,8 @@
       let hp = 100;
       setInterval(() => { hp = hp <= 15 ? 100 : hp - Math.round(Math.random() * 18); showVitals({ name: "Decoy", online: true, alive: true, wounded: false, sleeping: false, health: hp, maxHealth: 100, food: 380, water: 190, radiation: hp < 40 ? 22 : 0 }, true); }, 1500);
     } else {
-      const poll = () => fetch("/api/live/vitals", { cache: "no-store" })
+      const who = /^\d{17}$/.test(q.get("id") || "") ? q.get("id") : "76561199017715520";
+      const poll = () => fetch("/api/live/vitals?id=" + who, { cache: "no-store" })
         .then(r => r.json())
         .then(d => { if (d && d.ok && d.vitals) showVitals(d.vitals, Date.now() - Date.parse(d.updatedAt) < 20000); })
         .catch(() => {});

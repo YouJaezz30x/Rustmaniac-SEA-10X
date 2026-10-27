@@ -5,11 +5,14 @@ import { isGameServer } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
-// The streamer's vitals for the /live overlay. Kept as JSON in its own ServerStatus row so no schema change is needed;
-// the site only ever reads the "main" row for the server status card.
-const ROW = "live-vitals";
+// Each streamer's vitals for the /live overlay, kept as JSON in a ServerStatus row per Steam ID so no schema change is
+// needed; the site only ever reads the "main" row for the server status card.
+const OWNER_ID = "76561199017715520";
+const rowFor = (steamId: string) => `live-vitals-${steamId}`;
+const steamIdSchema = z.string().regex(/^\d{17}$/);
 
 const schema = z.object({
+  steamId: steamIdSchema.optional(),
   name: z.string().max(64),
   online: z.boolean(),
   alive: z.boolean(),
@@ -27,14 +30,17 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
+  const id = rowFor(parsed.data.steamId ?? OWNER_ID);
   const data = { hostname: JSON.stringify(parsed.data), online: 0, maxPlayers: 0, sleepers: 0, queued: 0, joining: 0, worldSize: 0, seed: 0 };
-  await prisma.serverStatus.upsert({ where: { id: ROW }, create: { id: ROW, ...data }, update: data });
+  await prisma.serverStatus.upsert({ where: { id }, create: { id, ...data }, update: data });
   return NextResponse.json({ ok: true });
 }
 
-export async function GET() {
-  const row = await prisma.serverStatus.findUnique({ where: { id: ROW } }).catch(() => null);
+export async function GET(req: Request) {
   const headers = { "Cache-Control": "no-store" };
+  const requested = steamIdSchema.safeParse(new URL(req.url).searchParams.get("id") ?? OWNER_ID);
+  if (!requested.success) return NextResponse.json({ ok: false }, { headers });
+  const row = await prisma.serverStatus.findUnique({ where: { id: rowFor(requested.data) } }).catch(() => null);
   if (!row) return NextResponse.json({ ok: false }, { headers });
   let vitals: unknown = null;
   try {
