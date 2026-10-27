@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rustmaniac SEA 10X - Live overlay</title>
+<style>
+  :root { --red: #e5391f; --gold: #e8c04a; --ink: #f4ede6; --panel: rgba(14, 12, 12, 0.86); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; overflow: hidden; width: 100%; height: 100%; }
+  body { font-family: "Segoe UI", "Arial Black", Arial, sans-serif; color: var(--ink); }
+
+  /* Banner: always on screen */
+  #banner {
+    position: absolute; left: 3vmin; right: 3vmin; top: 3vmin;
+    display: flex; align-items: center; gap: 2.4vmin;
+    padding: 1.6vmin 2.4vmin; border-radius: 2vmin;
+    background: var(--panel); border-left: 0.9vmin solid var(--red);
+    box-shadow: 0 1vmin 3vmin rgba(0, 0, 0, 0.45);
+  }
+  #banner img { width: 9vmin; height: 9vmin; border-radius: 1.4vmin; object-fit: cover; }
+  #banner .name { font-size: 4.2vmin; font-weight: 900; letter-spacing: 0.04em; line-height: 1; }
+  #banner .name b { color: var(--red); }
+  #banner .connect { margin-top: 0.8vmin; font-size: 2.9vmin; font-weight: 700; }
+  #banner .connect code { color: var(--gold); font-family: Consolas, "Courier New", monospace; font-weight: 700; }
+  #banner .meta { margin-top: 0.6vmin; font-size: 2.4vmin; opacity: 0.85; }
+  #banner .online { color: #6fe36f; font-weight: 800; }
+  body.bottom #banner { top: auto; bottom: 3vmin; }
+
+  /* Alerts */
+  #alerts { position: absolute; left: 3vmin; right: 3vmin; top: 22vmin; display: flex; flex-direction: column; align-items: center; }
+  body.bottom #alerts { top: auto; bottom: 22vmin; }
+  .alert {
+    width: 100%; max-width: 110vmin; display: flex; align-items: center; gap: 2.6vmin;
+    padding: 2.4vmin 3vmin; border-radius: 2.2vmin; background: var(--panel);
+    border: 0.45vmin solid var(--accent, var(--red));
+    box-shadow: 0 0 4vmin var(--glow, rgba(229, 57, 31, 0.55));
+    animation: pop-in 0.55s cubic-bezier(.2, 1.4, .4, 1) both;
+  }
+  .alert.out { animation: pop-out 0.45s ease-in both; }
+  .alert .icon { font-size: 9vmin; line-height: 1; filter: drop-shadow(0 0.6vmin 1vmin rgba(0,0,0,.6)); }
+  .alert .title { font-size: 5vmin; font-weight: 900; letter-spacing: 0.03em; color: var(--accent, var(--red)); line-height: 1.05; }
+  .alert .text { margin-top: 0.8vmin; font-size: 3.2vmin; font-weight: 600; line-height: 1.25; }
+  .alert .grid { display: inline-block; margin-top: 1vmin; padding: 0.3vmin 1.4vmin; border-radius: 1vmin; background: var(--accent, var(--red)); color: #111; font-weight: 900; font-size: 2.6vmin; }
+  @keyframes pop-in { from { opacity: 0; transform: translateY(-4vmin) scale(.85); } to { opacity: 1; transform: none; } }
+  @keyframes pop-out { to { opacity: 0; transform: translateY(-3vmin) scale(.92); } }
+</style>
+</head>
+<body>
+<div id="banner">
+  <img src="/server/logo.png" alt="">
+  <div>
+    <div class="name">RUSTMANIAC <b>SEA 10X</b></div>
+    <div class="connect">F1 &rarr; <code>client.connect rustmaniac.duckdns.org</code></div>
+    <div class="meta"><span class="online" id="online">&#9679; online</span> &nbsp;&middot;&nbsp; discord.gg/fE5YdJBgyv &nbsp;&middot;&nbsp; Free VIP for the first 20!</div>
+  </div>
+</div>
+<div id="alerts"></div>
+
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const topic = q.get("topic");
+  const showSeconds = Number(q.get("seconds") || 9);
+  if (q.get("pos") === "bottom") document.body.classList.add("bottom");
+  if (q.get("banner") === "0") document.getElementById("banner").style.display = "none";
+
+  const STYLE = {
+    koth:    { icon: "\u{1F451}", accent: "#e8c04a", glow: "rgba(232,192,74,.55)" },
+    sdh:     { icon: "\u{1F4E6}", accent: "#33b1ff", glow: "rgba(51,177,255,.55)" },
+    bradley: { icon: "\u{1F69C}", accent: "#e5391f", glow: "rgba(229,57,31,.6)" },
+    heli:    { icon: "\u{1F681}", accent: "#ff8a3d", glow: "rgba(255,138,61,.55)" },
+    cargo:   { icon: "\u{1F6A2}", accent: "#4fd1c5", glow: "rgba(79,209,197,.5)" },
+    chinook: { icon: "\u{2708}\u{FE0F}", accent: "#a3e635", glow: "rgba(163,230,53,.5)" },
+    kill:    { icon: "\u{1F4A5}", accent: "#ff4d4d", glow: "rgba(255,77,77,.65)" },
+    join:    { icon: "\u{1F44B}", accent: "#6fe36f", glow: "rgba(111,227,111,.45)" },
+    live:    { icon: "\u{1F534}", accent: "#ff2d55", glow: "rgba(255,45,85,.6)" },
+    end:     { icon: "\u{1F3C1}", accent: "#9ca3af", glow: "rgba(156,163,175,.4)" },
+    test:    { icon: "\u{2705}",  accent: "#e8c04a", glow: "rgba(232,192,74,.5)" }
+  };
+
+  const queue = [];
+  let busy = false;
+  const box = document.getElementById("alerts");
+  const online = document.getElementById("online");
+
+  function setPlayers(p) {
+    if (p && typeof p.players === "number") online.textContent = "\u25CF " + p.players + (p.max ? "/" + p.max : "") + " online";
+  }
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+
+  function next() {
+    if (busy || !queue.length) return;
+    busy = true;
+    const p = queue.shift();
+    const s = STYLE[p.type] || STYLE.test;
+    const card = el("div", "alert");
+    card.style.setProperty("--accent", s.accent);
+    card.style.setProperty("--glow", s.glow);
+    card.appendChild(el("div", "icon", s.icon));
+    const body = el("div");
+    body.appendChild(el("div", "title", p.title || ""));
+    if (p.text) body.appendChild(el("div", "text", p.text));
+    if (p.grid) body.appendChild(el("div", "grid", "GRID " + p.grid));
+    card.appendChild(body);
+    box.appendChild(card);
+    setTimeout(() => {
+      card.classList.add("out");
+      setTimeout(() => { card.remove(); busy = false; next(); }, 450);
+    }, showSeconds * 1000);
+  }
+
+  function handle(p) {
+    setPlayers(p);
+    if (!p || p.type === "status" || !p.title) return;
+    queue.push(p);
+    next();
+  }
+
+  function parse(msg) { try { return JSON.parse(msg); } catch (e) { return null; } }
+
+  if (q.get("demo") === "1") {
+    const demo = [
+      { type: "koth", title: "KING OF THE HILL", text: "A raidable base just spawned with 4 locked crates inside! Type /koth", players: 12, max: 150 },
+      { type: "bradley", title: "ROAD BRADLEY", text: "A Bradley APC is patrolling the roads near G15!", grid: "G15", players: 12, max: 150 },
+      { type: "kill", title: "HELI SHOT DOWN", text: "FarmNKiLL shot down the Patrol Heli at E12!", grid: "E12", players: 13, max: 150 },
+      { type: "sdh", title: "SUPPLY DROP HUNT", text: "A hidden supply drop has landed. Find it first! Type /hunt", players: 13, max: 150 },
+      { type: "join", title: "Boink joined", text: "Welcome to Rustmaniac SEA 10X!", players: 14, max: 150 }
+    ];
+    let i = 0;
+    handle(demo[i++ % demo.length]);
+    setInterval(() => handle(demo[i++ % demo.length]), (showSeconds + 2) * 1000);
+    return;
+  }
+
+  if (!topic) { online.textContent = "\u25CF add ?topic= to the link"; return; }
+
+  fetch("https://ntfy.sh/" + encodeURIComponent(topic) + "/json?poll=1&since=15m")
+    .then(r => r.text())
+    .then(t => t.trim().split("\n").filter(Boolean).forEach(line => {
+      const m = parse(line);
+      const p = m && m.event === "message" ? parse(m.message) : null;
+      if (p) setPlayers(p);
+    }))
+    .catch(() => {});
+
+  const es = new EventSource("https://ntfy.sh/" + encodeURIComponent(topic) + "/sse");
+  es.onmessage = ev => {
+    const m = parse(ev.data);
+    if (m && m.event === "message") handle(parse(m.message));
+  };
+})();
+</script>
+</body>
+</html>
