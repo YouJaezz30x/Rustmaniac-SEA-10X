@@ -43,6 +43,26 @@
   .alert .title { font-size: 5vmin; font-weight: 900; letter-spacing: 0.03em; color: var(--accent, var(--red)); line-height: 1.05; }
   .alert .text { margin-top: 0.8vmin; font-size: 3.2vmin; font-weight: 600; line-height: 1.25; }
   .alert .grid { display: inline-block; margin-top: 1vmin; padding: 0.3vmin 1.4vmin; border-radius: 1vmin; background: var(--accent, var(--red)); color: #111; font-weight: 900; font-size: 2.6vmin; }
+  /* Streamer vitals (?vitals=1) */
+  #vitals {
+    display: none; position: absolute; left: 3vmin; bottom: 3vmin; width: 52vmin;
+    padding: 2vmin 2.4vmin; border-radius: 2vmin; background: var(--panel);
+    border-left: 0.9vmin solid #6fe36f; box-shadow: 0 1vmin 3vmin rgba(0, 0, 0, 0.45);
+  }
+  body.vtop #vitals { bottom: auto; top: 18vmin; }
+  #vitals .who { display: flex; justify-content: space-between; align-items: center; font-size: 3vmin; font-weight: 900; margin-bottom: 1.2vmin; }
+  #vitals .tag { font-size: 2.2vmin; font-weight: 900; padding: 0.3vmin 1.2vmin; border-radius: 0.8vmin; background: #6fe36f; color: #111; }
+  .bar { position: relative; height: 3.6vmin; border-radius: 1vmin; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-top: 0.9vmin; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 1vmin; transition: width 0.6s ease, background 0.6s ease; }
+  .bar .label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 1.4vmin; font-size: 2.3vmin; font-weight: 900; text-shadow: 0 0.3vmin 0.6vmin rgba(0,0,0,.8); }
+  .bar.hp { height: 4.6vmin; }
+  .bar.hp .label { font-size: 2.8vmin; }
+  .bar.food .fill { background: linear-gradient(90deg, #c76b1c, #f0a040); }
+  .bar.water .fill { background: linear-gradient(90deg, #1d6fb8, #46b3ff); }
+  .bar.rad .fill { background: linear-gradient(90deg, #6b8f00, #c6f000); }
+  #vitals.hit { animation: hit 0.35s ease; }
+  @keyframes hit { 0% { transform: translateX(0); } 25% { transform: translateX(-1vmin); } 50% { transform: translateX(1vmin); } 100% { transform: translateX(0); } }
+
   @keyframes pop-in { from { opacity: 0; transform: translateY(-4vmin) scale(.85); } to { opacity: 1; transform: none; } }
   @keyframes pop-out { to { opacity: 0; transform: translateY(-3vmin) scale(.92); } }
 </style>
@@ -57,6 +77,13 @@
   </div>
 </div>
 <div id="alerts"></div>
+<div id="vitals">
+  <div class="who"><span id="v-name">Streamer</span><span class="tag" id="v-tag">ALIVE</span></div>
+  <div class="bar hp"><div class="fill" id="v-hp"></div><div class="label"><span>&#10084; HEALTH</span><span id="v-hp-t">-</span></div></div>
+  <div class="bar food"><div class="fill" id="v-food"></div><div class="label"><span>&#127830; FOOD</span><span id="v-food-t">-</span></div></div>
+  <div class="bar water"><div class="fill" id="v-water"></div><div class="label"><span>&#128167; WATER</span><span id="v-water-t">-</span></div></div>
+  <div class="bar rad" id="v-rad-bar" style="display:none"><div class="fill" id="v-rad"></div><div class="label"><span>&#9762; RADIATION</span><span id="v-rad-t">-</span></div></div>
+</div>
 
 <script>
 (() => {
@@ -120,6 +147,48 @@
   }
 
   function parse(msg) { try { return JSON.parse(msg); } catch (e) { return null; } }
+
+  // Streamer vitals, polled from the site (the game server posts them every couple of seconds while live).
+  const V = id => document.getElementById(id);
+  let lastHp = null;
+  function bar(id, value, max) {
+    const pct = Math.max(0, Math.min(100, (value / max) * 100));
+    V(id).style.width = pct + "%";
+    V(id + "-t").textContent = Math.round(value) + " / " + max;
+    return pct;
+  }
+  function showVitals(v, fresh) {
+    const box = V("vitals");
+    box.style.display = "block";
+    V("v-name").textContent = v.name || "Streamer";
+    const pct = bar("v-hp", v.alive ? v.health : 0, Math.round(v.maxHealth || 100));
+    V("v-hp").style.background = pct > 60 ? "linear-gradient(90deg,#2f9e44,#6fe36f)" : pct > 30 ? "linear-gradient(90deg,#c08a00,#f5c518)" : "linear-gradient(90deg,#a61e1e,#ff4d4d)";
+    bar("v-food", v.food, 500);
+    bar("v-water", v.water, 250);
+    V("v-rad-bar").style.display = v.radiation > 1 ? "block" : "none";
+    if (v.radiation > 1) bar("v-rad", v.radiation, 100);
+    const tag = V("v-tag");
+    const state = !fresh || !v.online ? ["OFFLINE", "#9ca3af"] : !v.alive ? ["DEAD", "#ff4d4d"] : v.wounded ? ["DOWNED", "#ff8a3d"] : v.sleeping ? ["SLEEPING", "#9ca3af"] : ["ALIVE", "#6fe36f"];
+    tag.textContent = state[0];
+    tag.style.background = state[1];
+    box.style.borderLeftColor = state[1];
+    if (lastHp !== null && v.alive && v.health < lastHp - 1) { box.classList.remove("hit"); void box.offsetWidth; box.classList.add("hit"); }
+    lastHp = v.alive ? v.health : null;
+  }
+  if (q.get("vitals") === "1") {
+    if (q.get("vpos") === "top") document.body.classList.add("vtop");
+    if (q.get("demo") === "1") {
+      let hp = 100;
+      setInterval(() => { hp = hp <= 15 ? 100 : hp - Math.round(Math.random() * 18); showVitals({ name: "Decoy", online: true, alive: true, wounded: false, sleeping: false, health: hp, maxHealth: 100, food: 380, water: 190, radiation: hp < 40 ? 22 : 0 }, true); }, 1500);
+    } else {
+      const poll = () => fetch("/api/live/vitals", { cache: "no-store" })
+        .then(r => r.json())
+        .then(d => { if (d && d.ok && d.vitals) showVitals(d.vitals, Date.now() - Date.parse(d.updatedAt) < 20000); })
+        .catch(() => {});
+      poll();
+      setInterval(poll, 1500);
+    }
+  }
 
   if (q.get("demo") === "1") {
     const demo = [
