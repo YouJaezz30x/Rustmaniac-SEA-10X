@@ -23,6 +23,8 @@ const schema = z.object({
   food: z.number().min(0).max(1000),
   water: z.number().min(0).max(1000),
   radiation: z.number().min(0).max(1000),
+  ping: z.number().int().min(0).max(10000).optional(),
+  serverFps: z.number().int().min(0).max(10000).optional(),
 });
 
 export async function POST(req: Request) {

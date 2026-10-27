@@ -60,6 +60,8 @@
   .bar.food .fill { background: linear-gradient(90deg, #c76b1c, #f0a040); }
   .bar.water .fill { background: linear-gradient(90deg, #1d6fb8, #46b3ff); }
   .bar.rad .fill { background: linear-gradient(90deg, #6b8f00, #c6f000); }
+  #vitals .stats { display: flex; gap: 2vmin; margin-top: 1.2vmin; font-size: 2.4vmin; font-weight: 800; opacity: 0.92; }
+  #vitals .stats b { font-family: Consolas, "Courier New", monospace; }
   #vitals.hit { animation: hit 0.35s ease; }
   @keyframes hit { 0% { transform: translateX(0); } 25% { transform: translateX(-1vmin); } 50% { transform: translateX(1vmin); } 100% { transform: translateX(0); } }
 
@@ -83,6 +85,7 @@
   <div class="bar food"><div class="fill" id="v-food"></div><div class="label"><span>&#127830; FOOD</span><span id="v-food-t">-</span></div></div>
   <div class="bar water"><div class="fill" id="v-water"></div><div class="label"><span>&#128167; WATER</span><span id="v-water-t">-</span></div></div>
   <div class="bar rad" id="v-rad-bar" style="display:none"><div class="fill" id="v-rad"></div><div class="label"><span>&#9762; RADIATION</span><span id="v-rad-t">-</span></div></div>
+  <div class="stats" id="v-stats" style="display:none"><span>&#128246; Ping <b id="v-ping">-</b></span><span>&#9889; Server <b id="v-sfps">-</b> FPS</span></div>
 </div>
 
 <script>
@@ -166,6 +169,13 @@
     bar("v-food", v.food, 500);
     bar("v-water", v.water, 250);
     V("v-rad-bar").style.display = v.radiation > 1 ? "block" : "none";
+    const showStats = q.get("stats") !== "0" && fresh && v.online && typeof v.ping === "number";
+    V("v-stats").style.display = showStats ? "flex" : "none";
+    if (showStats) {
+      V("v-ping").textContent = v.ping + " ms";
+      V("v-ping").style.color = v.ping <= 80 ? "#6fe36f" : v.ping <= 150 ? "#f5c518" : "#ff4d4d";
+      V("v-sfps").textContent = typeof v.serverFps === "number" ? v.serverFps : "-";
+    }
     if (v.radiation > 1) bar("v-rad", v.radiation, 100);
     const tag = V("v-tag");
     const state = !fresh || !v.online ? ["OFFLINE", "#9ca3af"] : !v.alive ? ["DEAD", "#ff4d4d"] : v.wounded ? ["DOWNED", "#ff8a3d"] : v.sleeping ? ["SLEEPING", "#9ca3af"] : ["ALIVE", "#6fe36f"];
@@ -179,7 +189,7 @@
     if (q.get("vpos") === "top") document.body.classList.add("vtop");
     if (q.get("demo") === "1") {
       let hp = 100;
-      setInterval(() => { hp = hp <= 15 ? 100 : hp - Math.round(Math.random() * 18); showVitals({ name: "Decoy", online: true, alive: true, wounded: false, sleeping: false, health: hp, maxHealth: 100, food: 380, water: 190, radiation: hp < 40 ? 22 : 0 }, true); }, 1500);
+      setInterval(() => { hp = hp <= 15 ? 100 : hp - Math.round(Math.random() * 18); showVitals({ name: "Decoy", online: true, alive: true, wounded: false, sleeping: false, health: hp, maxHealth: 100, food: 380, water: 190, radiation: hp < 40 ? 22 : 0, ping: 28 + Math.round(Math.random() * 8), serverFps: 110 + Math.round(Math.random() * 15) }, true); }, 1500);
     } else {
       const who = /^\d{17}$/.test(q.get("id") || "") ? q.get("id") : "76561199017715520";
       const poll = () => fetch("/api/live/vitals?id=" + who, { cache: "no-store" })
